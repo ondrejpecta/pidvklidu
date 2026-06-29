@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klimatizovaná vozidla PID po linkách</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; width: 100%; box-sizing: border-box; }
+        h1, h2 { text-align: center; color: #2c3e50; margin-top: 0; }
+        .status { text-align: center; color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px; }
+        .summary-box { background: #e8f4fd; border-left: 5px solid #3498db; padding: 15px; border-radius: 4px; margin-bottom: 30px; text-align: center; }
+        .summary-count { font-size: 2rem; font-weight: bold; color: #2980b9; }
+        
+        .search-container { margin-bottom: 15px; width: 100%; }
+        #searchInput { width: 100%; padding: 12px 20px; font-size: 1rem; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; transition: border-color 0.3s; }
+        #searchInput:focus { border-color: #3498db; outline: none; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #34495e; color: white; }
+        tr:hover { background-color: #f5f5f5; }
+        .text-right { text-align: right; }
+        .progress-bar-container { background-color: #e0e0e0; border-radius: 4px; width: 100%; height: 10px; overflow: hidden; margin-top: 4px; }
+        .progress-bar { background-color: #2ecc71; height: 100%; width: 0%; transition: width 0.5s ease; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Klima v PIDu ❄️</h1>
+        <div id="status" class="status">Načítám data z Golemio API...</div>
+        
+        <div class="summary-box">
+            <h2>Celkový přehled</h2>
+            <div id="global-result" class="summary-count">-</div>
+            <div id="global-details"></div>
+        </div>
+
+        <h2>Statistika podle linek</h2>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Hledej linku (např. 101)...">
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Linka</th>
+                    <th class="text-right">Klimatizovaná / Celkem</th>
+                    <th class="text-right">Podíl %</th>
+                </tr>
+            </thead>
+            <tbody id="lines-table-body">
+            </tbody>
+        </table>
+    </div>
+
+    <div>
+        <footer>© Ondřej Pečta 2026</footer>
+    </div>
+
+    <script>
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NTY2NSwiaWF0IjoxNzgyNzE5NjA1LCJleHAiOjExNzgyNzE5NjA1LCJpc3MiOiJnb2xlbWlvIiwianRpIjoiMzFjNjM4OWMtOTVkMy00NzBlLTkyMWYtYjhlM2U4NDdmZmQ5In0.RS5BRbteJiC-tpP5_ROvK-bcfasijDj4c214KZPXLwg'; 
+        const URL = 'https://api.golemio.cz/v2/vehiclepositions?limit=5000';
+
+        // Funkce pro aplikaci filtru nezávisle na načítání dat
+        function applyFilter() {
+            const searchInput = document.getElementById('searchInput');
+            if (!searchInput) return;
+            
+            const searchTerm = searchInput.value.trim().toLowerCase();
+            const rows = document.querySelectorAll('#lines-table-body tr[data-line]');
+            
+            rows.forEach(row => {
+                const line = row.getAttribute('data-line');
+                if (line && line.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        async function fetchVehicleData() {
+            try {
+                const response = await fetch(URL, {
+                    method: 'GET',
+                    headers: {
+                        'X-Access-Token': API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Chyba serveru: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                const lineStats = {};
+                let totalGlobalAc = 0;
+                let totalGlobalVehicles = 0;
+
+                if (data && data.features) {
+                    data.features.forEach(feature => {
+                        const props = feature.properties;
+                        const routeName = props?.route?.short_name || props?.trip?.route_short_name || props?.trip?.gtfs?.route_short_name;
+                        
+                        const isAc = 
+                            props?.trip?.air_conditioned === true || 
+                            props?.trip?.air_conditioned === "true" ||
+                            props?.trip?.is_air_conditioned === true ||
+                            props?.vehicle?.air_conditioned === true ||
+                            props?.vehicle?.is_air_conditioned === true;
+
+                        if (routeName) {
+                            const lineNumber = parseInt(routeName, 10);
+
+                            if (!isNaN(lineNumber) && lineNumber >= 1 && lineNumber <= 299) {
+                                if (!lineStats[routeName]) {
+                                    lineStats[routeName] = { ac: 0, total: 0 };
+                                }
+
+                                lineStats[routeName].total++;
+                                totalGlobalVehicles++;
+
+                                if (isAc) {
+                                    lineStats[routeName].ac++;
+                                    totalGlobalAc++;
+                                }
+                            }
+                        }
+                    });
+                }
+
+                const globalPercent = totalGlobalVehicles > 0 ? ((totalGlobalAc / totalGlobalVehicles) * 100).toFixed(1) : 0;
+                document.getElementById('global-result').innerText = `${totalGlobalAc} z ${totalGlobalVehicles} vozidel`;
+                document.getElementById('global-details').innerText = `V Praze se teď ochladíš v ${globalPercent} % vozidel ❄️`;
+
+                const tableBody = document.getElementById('lines-table-body');
+                tableBody.innerHTML = ''; 
+
+                const sortedLines = Object.keys(lineStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+                if (sortedLines.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Aktuálně nebyly nalezeny žádné aktivní linky v rozsahu 1-299.</td></tr>';
+                } else {
+                    sortedLines.forEach(line => {
+                        const stats = lineStats[line];
+                        const percent = ((stats.ac / stats.total) * 100).toFixed(1);
+
+                        const row = document.createElement('tr');
+                        row.setAttribute('data-line', line.toLowerCase()); 
+                        
+                        row.innerHTML = `
+                            <td><strong>${line}</strong></td>
+                            <td class="text-right">${stats.ac} / ${stats.total}</td>
+                            <td class="text-right">
+                                <strong>${percent} %</strong>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" style="width: ${percent}%;"></div>
+                                </div>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                }
+
+                // Po načtení nových dat automaticky aplikujeme případný filtr
+                applyFilter();
+
+                document.getElementById('status').innerText = `Data platná k: ${new Date().toLocaleTimeString('cs-CZ')}`;
+                document.getElementById('status').style.color = '#7f8c8d';
+
+            } catch (error) {
+                console.error('Chyba při volání API:', error);
+                document.getElementById('status').innerText = `Chyba stahování dat: ${error.message}`;
+                document.getElementById('status').style.color = 'red';
+            }
+        }
+
+        // Posluchač pro vyhledávací políčko
+        document.getElementById('searchInput').addEventListener('input', applyFilter);
+
+        fetchVehicleData();
+        setInterval(fetchVehicleData, 30000);
+    </script>
+</body>
+</html>
