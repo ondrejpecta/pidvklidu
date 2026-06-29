@@ -5,24 +5,117 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zchlaď se v tramvaji 🚋 trolejbusu 🚎 a autobusu 🚌 na jednu jídenku 🎫</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; width: 100%; box-sizing: border-box; }
-        h1, h2 { text-align: center; color: #2c3e50; margin-top: 0; }
-        .status { text-align: center; color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px; }
-        .summary-box { background: #e8f4fd; border-left: 5px solid #3498db; padding: 15px; border-radius: 4px; margin-bottom: 30px; text-align: center; }
-        .summary-count { font-size: 2rem; font-weight: bold; color: #2980b9; }
+        /* Definice barev pro SVĚTLÝ režim (výchozí) */
+        :root {
+            --bg-body: #f4f7f6;
+            --bg-container: #ffffff;
+            --text-main: #333333;
+            --text-heading: #2c3e50;
+            --text-muted: #7f8c8d;
+            --bg-summary: #e8f4fd;
+            --border-summary: #3498db;
+            --text-summary-count: #2980b9;
+            --bg-input: #ffffff;
+            --border-input: #ddd;
+            --bg-th: #34495e;
+            --border-td: #ddd;
+            --bg-hover: #f5f5f5;
+            --bg-progress-track: #e0e0e0;
+            --bg-progress-fill: #2ecc71;
+        }
+
+        /* Definice barev pro TMAVÝ režim (detekce podle systému) */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-body: #121212;
+                --bg-container: #1e1e1e;
+                --text-main: #e0e0e0;
+                --text-heading: #ffffff;
+                --text-muted: #a0a0a0;
+                --bg-summary: #2c3e50; 
+                --border-summary: #2980b9;
+                --text-summary-count: #6fb9f0; 
+                --bg-input: #2a2a2a;
+                --border-input: #444444;
+                --bg-th: #222222;
+                --border-td: #333333;
+                --bg-hover: #2a2a2a;
+                --bg-progress-track: #444444;
+                --bg-progress-fill: #27ae60;
+            }
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            transition: background-color 0.3s, color 0.3s; /* Plynulý přechod při změně režimu */
+        }
+        
+        .container { 
+            background: var(--bg-container); 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            max-width: 800px; 
+            width: 100%; 
+            box-sizing: border-box; 
+            transition: background-color 0.3s; 
+        }
+        
+        h1, h2 { text-align: center; color: var(--text-heading); margin-top: 0; }
+        .status { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+        
+        .summary-box { 
+            background: var(--bg-summary); 
+            border-left: 5px solid var(--border-summary); 
+            padding: 15px; 
+            border-radius: 4px; 
+            margin-bottom: 30px; 
+            text-align: center; 
+            transition: background-color 0.3s, border-color 0.3s; 
+        }
+        .summary-count { font-size: 2rem; font-weight: bold; color: var(--text-summary-count); }
         
         .search-container { margin-bottom: 15px; width: 100%; }
-        #searchInput { width: 100%; padding: 12px 20px; font-size: 1rem; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; transition: border-color 0.3s; }
-        #searchInput:focus { border-color: #3498db; outline: none; }
+        #searchInput { 
+            width: 100%; 
+            padding: 12px 20px; 
+            font-size: 1rem; 
+            background-color: var(--bg-input); 
+            color: var(--text-main); 
+            border: 2px solid var(--border-input); 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            transition: border-color 0.3s, background-color 0.3s, color 0.3s; 
+        }
+        #searchInput:focus { border-color: var(--border-summary); outline: none; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #34495e; color: white; }
-        tr:hover { background-color: #f5f5f5; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-td); }
+        th { background-color: var(--bg-th); color: white; transition: background-color 0.3s; }
+        tr:hover { background-color: var(--bg-hover); }
         .text-right { text-align: right; }
-        .progress-bar-container { background-color: #e0e0e0; border-radius: 4px; width: 100%; height: 10px; overflow: hidden; margin-top: 4px; }
-        .progress-bar { background-color: #2ecc71; height: 100%; width: 0%; transition: width 0.5s ease; }
+        
+        .progress-bar-container { 
+            background-color: var(--bg-progress-track); 
+            border-radius: 4px; 
+            width: 100%; 
+            height: 10px; 
+            overflow: hidden; 
+            margin-top: 4px; 
+        }
+        .progress-bar { 
+            background-color: var(--bg-progress-fill); 
+            height: 100%; 
+            width: 0%; 
+            transition: width 0.5s ease; 
+        }
     </style>
 </head>
 <body>
