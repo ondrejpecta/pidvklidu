@@ -210,7 +210,11 @@
                         if (routeName) {
                             const lineNumber = parseInt(routeName, 10);
 
-                            if (!isNaN(lineNumber) && lineNumber >= 1 && lineNumber <= 299) {
+                            if (!isNaN(lineNumber) && (
+                            (lineNumber >= 1 && lineNumber <= 299) || 
+                            (lineNumber >= 900 && lineNumber <= 949)
+                            ))                            
+                            {
                                 if (!lineStats[routeName]) {
                                     lineStats[routeName] = { ac: 0, total: 0 };
                                 }
